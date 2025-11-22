@@ -1,10 +1,10 @@
 import SwiftUI
 import AppKit
-import Combine // <--- This fixes the "Missing import" errors
+import Combine
 
 // 1. DATA MODELS
-// Added 'Sendable' to fix the warning about using this in background threads
-struct WallpaperManifest: Codable, Sendable {
+// We ensure this is a plain struct outside of any class
+struct WallpaperManifest: Codable {
     let id: String
     let imageUrl: String
     let title: String
@@ -25,7 +25,6 @@ class WallpaperManager: ObservableObject {
             self.currentStatus = "Checking for new wallpaper..."
         }
         
-        // Fetch the JSON manifest
         let task = URLSession.shared.dataTask(with: manifestUrl) { data, response, error in
             if let error = error {
                 DispatchQueue.main.async { self.currentStatus = "Error: \(error.localizedDescription)" }
@@ -35,7 +34,7 @@ class WallpaperManager: ObservableObject {
             guard let data = data else { return }
             
             do {
-                // Decoding happens here (background thread)
+                // Decode the data into our struct
                 let manifest = try JSONDecoder().decode(WallpaperManifest.self, from: data)
                 self.processManifest(manifest)
             } catch {
@@ -50,15 +49,13 @@ class WallpaperManager: ObservableObject {
             self.currentTitle = manifest.title
         }
         
-        // Check if we already have this wallpaper ID saved
         let lastId = defaults.string(forKey: "lastWallpaperId")
         
         if lastId == manifest.id {
             DispatchQueue.main.async { self.currentStatus = "Up to date." }
-            return // We already have this one!
+            return
         }
         
-        // It's new! Download the image.
         downloadImage(from: manifest.imageUrl, id: manifest.id)
     }
     
@@ -71,18 +68,14 @@ class WallpaperManager: ObservableObject {
             guard let localURL = localURL, error == nil else { return }
             
             do {
-                // Move file to a permanent location in the app's sandbox
                 let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
                 let destinationURL = documentsURL.appendingPathComponent("current_wallpaper.jpg")
                 
-                // Remove old file if it exists
                 if FileManager.default.fileExists(atPath: destinationURL.path) {
                     try FileManager.default.removeItem(at: destinationURL)
                 }
                 
                 try FileManager.default.moveItem(at: localURL, to: destinationURL)
-                
-                // Set the wallpaper
                 self.setWallpaper(imageURL: destinationURL, id: id)
                 
             } catch {
@@ -96,17 +89,11 @@ class WallpaperManager: ObservableObject {
         DispatchQueue.main.async {
             do {
                 let workspace = NSWorkspace.shared
-                
-                // Logic to apply to all screens
                 for screen in NSScreen.screens {
-                    // This is the core macOS command to change wallpaper
                     try workspace.setDesktopImageURL(imageURL, for: screen, options: [:])
                 }
-                
-                // Save the ID so we don't download it again until you change it
                 self.defaults.set(id, forKey: "lastWallpaperId")
                 self.currentStatus = "Wallpaper updated!"
-                
             } catch {
                 self.currentStatus = "Failed to set wallpaper."
             }
@@ -117,17 +104,15 @@ class WallpaperManager: ObservableObject {
 // 3. THE APP ENTRY POINT
 @main
 struct CuratedWallpaperApp: App {
-    // Create an instance of our logic manager
     @StateObject var manager = WallpaperManager()
     
-    // Create a timer to check every hour (3600 seconds)
+    // Timer fires every 1 hour (3600 seconds)
     let timer = Timer.publish(every: 3600, on: .main, in: .common).autoconnect()
     
     var body: some Scene {
-        // MenuBarExtra makes it live in the top bar, not the dock
         MenuBarExtra("Curated", systemImage: "photo.on.rectangle") {
             
-            // The tiny menu needed for status
+            // --- VIEW CONTENT STARTS HERE ---
             VStack(alignment: .leading) {
                 Text("Curated Wallpaper")
                     .font(.headline)
@@ -145,18 +130,16 @@ struct CuratedWallpaperApp: App {
                 }
             }
             .padding()
+            // FIX: We attached these modifiers to the VStack (View), not the MenuBarExtra (Scene)
+            .onAppear {
+                manager.checkForUpdates()
+            }
+            .onReceive(timer) { _ in
+                manager.checkForUpdates()
+            }
+            // --- VIEW CONTENT ENDS HERE ---
             
         }
-        // This style makes it a standard dropdown menu
         .menuBarExtraStyle(.menu)
-        
-        // Logic to run when app starts
-        .onChange(of: true) { _ in // Simple trick to run on launch
-            manager.checkForUpdates()
-        }
-        // Logic to run on timer
-        .onReceive(timer) { _ in
-            manager.checkForUpdates()
-        }
     }
 }
