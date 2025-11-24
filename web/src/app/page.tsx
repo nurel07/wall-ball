@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
 
-export const revalidate = 60; // Revalidate every minute
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const wallpapers = await prisma.wallpaper.findMany({
