@@ -8,9 +8,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 password: { label: "Password", type: "password" },
             },
             authorize: async (credentials) => {
-                if (credentials?.password === process.env.ADMIN_PASSWORD) {
+                console.log("Authorize called");
+                const adminPassword = process.env.ADMIN_PASSWORD;
+                console.log("ADMIN_PASSWORD set:", !!adminPassword);
+
+                if (!adminPassword) {
+                    console.error("ADMIN_PASSWORD is not set in environment variables");
+                    return null;
+                }
+
+                if (credentials?.password === adminPassword) {
+                    console.log("Password match");
                     return { id: "1", name: "Admin" };
                 }
+                console.log("Password mismatch");
                 return null;
             },
         }),
