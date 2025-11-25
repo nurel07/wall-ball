@@ -10,6 +10,7 @@ import AdminWallpaperItem from "@/components/AdminWallpaperItem";
 
 export default async function AdminDashboard() {
     const session = await auth();
+    console.log("Admin Dashboard Session:", JSON.stringify(session, null, 2));
     if (!session) {
         redirect("/login");
     }
@@ -32,6 +33,9 @@ export default async function AdminDashboard() {
                 {wallpapers.map((wallpaper) => (
                     <AdminWallpaperItem key={wallpaper.id} wallpaper={wallpaper} />
                 ))}
+            </div>
+            <div className="mt-8 text-center text-gray-500 text-sm">
+                Admin Dashboard v1.1 (Auth Check Active)
             </div>
         </div>
     );
