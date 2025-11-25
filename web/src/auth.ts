@@ -18,4 +18,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     pages: {
         signIn: "/login",
     },
+    callbacks: {
+        jwt({ token, user }) {
+            if (user) {
+                token.id = user.id;
+                token.name = user.name;
+            }
+            return token;
+        },
+        session({ session, token }) {
+            if (session.user) {
+                session.user.name = token.name;
+            }
+            return session;
+        },
+    },
 });
