@@ -24,8 +24,15 @@ export default function UploadCell() {
                 <div className="absolute inset-0 z-20 opacity-0">
                     <UploadDropzone
                         endpoint="imageUploader"
-                        onClientUploadComplete={handleUploadComplete}
+                        onUploadBegin={() => {
+                            console.log("Upload started...");
+                        }}
+                        onClientUploadComplete={(res) => {
+                            console.log("Upload completed:", res);
+                            handleUploadComplete(res);
+                        }}
                         onUploadError={(error: Error) => {
+                            console.error("Upload error:", error);
                             alert(`ERROR! ${error.message}`);
                         }}
                         appearance={{
