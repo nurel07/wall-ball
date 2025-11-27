@@ -1,7 +1,8 @@
+```typescript
 "use client";
 
-import { UploadDropzone } from "@/lib/uploadthing";
-import { useState } from "react";
+import { useUploadThing } from "@/lib/uploadthing";
+import { useState, useRef } from "react";
 import { Upload } from "lucide-react";
 import UploadModal from "./UploadModal";
 
@@ -9,45 +10,51 @@ export default function UploadCell() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [uploadedImageUrl, setUploadedImageUrl] = useState("");
     const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleUploadComplete = (res: any) => {
-        setIsUploading(false);
-        if (res && res[0]) {
-            setUploadedImageUrl(res[0].url);
-            setIsModalOpen(true);
-        }
+    const { startUpload } = useUploadThing("imageUploader", {
+        onClientUploadComplete: (res) => {
+            console.log("Upload completed:", res);
+            setIsUploading(false);
+            if (res && res[0]) {
+                setUploadedImageUrl(res[0].url);
+                setIsModalOpen(true);
+            }
+        },
+        onUploadError: (error: Error) => {
+            console.error("Upload error:", error);
+            setIsUploading(false);
+            alert(`ERROR! ${ error.message } `);
+        },
+        onUploadBegin: () => {
+            console.log("Upload started...");
+            setIsUploading(true);
+        },
+    });
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        await startUpload(Array.from(files));
     };
 
     return (
         <>
-            <div className="relative w-full h-auto aspect-[16/10] bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center overflow-hidden group cursor-pointer">
-
-                {/* We overlay the UploadDropzone to cover the entire area */}
-                <div className="absolute inset-0 z-20 opacity-0">
-                    <UploadDropzone
-                        endpoint="imageUploader"
-                        onUploadBegin={() => {
-                            console.log("Upload started...");
-                            setIsUploading(true);
-                        }}
-                        onClientUploadComplete={(res) => {
-                            console.log("Upload completed:", res);
-                            handleUploadComplete(res);
-                        }}
-                        onUploadError={(error: Error) => {
-                            console.error("Upload error:", error);
-                            setIsUploading(false);
-                            alert(`ERROR! ${error.message}`);
-                        }}
-                        appearance={{
-                            container: { height: '100%', width: '100%', border: 'none' },
-                            uploadIcon: { display: 'none' },
-                            label: { display: 'none' },
-                            allowedContent: { display: 'none' },
-                            button: { display: 'none' },
-                        }}
-                    />
-                </div>
+            <div 
+                className="relative w-full h-auto aspect-[16/10] bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center overflow-hidden group cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+            >
+                
+                {/* Hidden File Input */}
+                <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    disabled={isUploading}
+                />
 
                 {/* Visual Content */}
                 <div className="flex flex-col items-center text-gray-400 group-hover:text-blue-500 transition-colors pointer-events-none z-10">
