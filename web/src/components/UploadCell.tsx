@@ -2,7 +2,7 @@
 
 import { UploadDropzone } from "@/lib/uploadthing";
 import { useState } from "react";
-import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
+import { Upload } from "lucide-react";
 import UploadModal from "./UploadModal";
 
 export default function UploadCell() {
@@ -40,7 +40,7 @@ export default function UploadCell() {
 
                 {/* Visual Content */}
                 <div className="flex flex-col items-center text-gray-400 group-hover:text-blue-500 transition-colors pointer-events-none">
-                    <ArrowUpTrayIcon className="w-12 h-12 mb-2" />
+                    <Upload className="w-12 h-12 mb-2" />
                     <span className="font-medium">Upload Image</span>
                     <span className="text-xs mt-1 opacity-70">Drag & drop or click</span>
                 </div>
