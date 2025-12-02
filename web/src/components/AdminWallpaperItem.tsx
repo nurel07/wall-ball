@@ -7,7 +7,9 @@ import { useRouter } from "next/navigation";
 interface Wallpaper {
     id: string;
     url: string;
+    name: string | null;
     description: string | null;
+    externalUrl: string | null;
     releaseDate: Date;
 }
 
@@ -32,7 +34,7 @@ export default function AdminWallpaperItem({ wallpaper }: { wallpaper: Wallpaper
         <div className="group relative">
             <img
                 src={wallpaper.url}
-                alt={wallpaper.description || "Wallpaper"}
+                alt={wallpaper.name || wallpaper.description || "Wallpaper"}
                 className="w-full h-auto object-cover block"
             />
 
@@ -54,8 +56,9 @@ export default function AdminWallpaperItem({ wallpaper }: { wallpaper: Wallpaper
                 </div>
 
                 <div className="text-white">
-                    <p className="font-bold text-sm">{format(new Date(wallpaper.releaseDate), "yyyy-MM-dd")}</p>
-                    {wallpaper.description && <p className="text-xs opacity-90 truncate">{wallpaper.description}</p>}
+                    <p className="font-bold text-sm mb-1">{format(new Date(wallpaper.releaseDate), "yyyy-MM-dd")}</p>
+                    {wallpaper.name && <p className="font-semibold text-sm truncate">{wallpaper.name}</p>}
+                    {wallpaper.description && <p className="text-xs opacity-90 line-clamp-2">{wallpaper.description}</p>}
                 </div>
             </div>
         </div>
