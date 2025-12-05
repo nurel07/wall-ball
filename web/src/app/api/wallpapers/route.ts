@@ -25,6 +25,12 @@ export async function GET(request: Request) {
             };
         }
 
+        // Debug logging
+        console.log("API v5 Debug:");
+        console.log("- Request URL:", request.url);
+        console.log("- Published Param:", publishedParam);
+        console.log("- Where Clause:", JSON.stringify(where, null, 2));
+
         const wallpapers = await prisma.wallpaper.findMany({
             where,
             orderBy: [
@@ -33,10 +39,12 @@ export async function GET(request: Request) {
             ],
         });
 
+        console.log("- Wallpapers Found:", wallpapers.length);
+
         // Debug: Return X-Debug-Version header to verify deployment
         return NextResponse.json(wallpapers, {
             headers: {
-                "X-Debug-Version": "v4",
+                "X-Debug-Version": "v5",
             },
         });
     } catch (error) {
