@@ -34,7 +34,7 @@ export async function GET(request: Request) {
         // Debug: Return X-Debug-Version header to verify deployment
         return NextResponse.json(wallpapers, {
             headers: {
-                "X-Debug-Version": "v2",
+                "X-Debug-Version": "v3",
             },
         });
     } catch (error) {
