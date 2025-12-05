@@ -3,10 +3,25 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const channel = searchParams.get("channel");
+    const channelParam = searchParams.get("channel");
 
     try {
-        const where = channel ? { channel } : {};
+        let where = {};
+        if (channelParam) {
+            const channels = channelParam.split(",");
+            where = { channel: { in: channels } };
+        }
+
+        // Filter by published date if requested
+        const publishedParam = searchParams.get("published");
+        if (publishedParam === "true") {
+            where = {
+                ...where,
+                releaseDate: {
+                    lte: new Date(),
+                },
+            };
+        }
 
         const wallpapers = await prisma.wallpaper.findMany({
             where,
