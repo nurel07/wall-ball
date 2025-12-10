@@ -10,7 +10,7 @@ interface Wallpaper {
     name: string | null;
     description: string | null;
     externalUrl: string | null;
-    releaseDate: Date;
+    releaseDate: Date | string;
 }
 
 export default function AdminWallpaperItem({ wallpaper }: { wallpaper: Wallpaper }) {
