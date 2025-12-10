@@ -8,15 +8,14 @@ interface MasonryGridProps {
 
 export default function MasonryGrid({ children, className = "", gap = "gap-6 space-y-6" }: MasonryGridProps) {
     return (
-        <div className={`columns-1 md:columns-2 lg:columns-3 ${gap} ${className}`}>
-            {/* 
-              We use 'break-inside-avoid' on children to prevent them from being split across columns.
-            */}
+    return (
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${gap} ${className}`}>
             {React.Children.map(children, (child) => (
-                <div className={`break-inside-avoid ${gap === "gap-0 space-y-0" ? "mb-0" : "mb-6"}`}>
+                <div className="w-full">
                     {child}
                 </div>
             ))}
         </div>
+    );
     );
 }
