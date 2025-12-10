@@ -10,6 +10,7 @@ import AdminWallpaperItem from "@/components/AdminWallpaperItem";
 import SignOutButton from "@/components/SignOutButton";
 import MasonryGrid from "@/components/MasonryGrid";
 import UploadCell from "@/components/UploadCell";
+import AdminDashboardTabs from "@/components/AdminDashboardTabs";
 
 export default async function AdminDashboard() {
     const session = await auth();
@@ -17,9 +18,24 @@ export default async function AdminDashboard() {
     if (!session) {
         redirect("/login");
     }
-    const wallpapers = await prisma.wallpaper.findMany({
-        orderBy: { releaseDate: "asc" },
-    });
+
+    const now = new Date();
+
+    // Fetch Past and Future in parallel
+    const [pastWallpapers, futureWallpapers] = await Promise.all([
+        prisma.wallpaper.findMany({
+            where: {
+                releaseDate: { lte: now },
+            },
+            orderBy: { releaseDate: "desc" }, // Past: Newest (closest to today) first
+        }),
+        prisma.wallpaper.findMany({
+            where: {
+                releaseDate: { gt: now },
+            },
+            orderBy: { releaseDate: "asc" }, // Future: Earliest (closest to today) first
+        }),
+    ]);
 
     return (
         <div className="p-8">
@@ -40,18 +56,14 @@ export default async function AdminDashboard() {
                 </div>
             </div>
 
-            <MasonryGrid gap="gap-0 space-y-0">
-                {/* First cell is always the Upload trigger */}
-                <UploadCell />
-
-                {/* Remaining cells are wallpapers */}
-                {wallpapers.map((wallpaper) => (
-                    <AdminWallpaperItem key={wallpaper.id} wallpaper={wallpaper} />
-                ))}
-            </MasonryGrid>
+            {/* Smart Tabs Interface */}
+            <AdminDashboardTabs
+                pastWallpapers={pastWallpapers}
+                futureWallpapers={futureWallpapers}
+            />
 
             <div className="mt-12 text-center text-gray-500 text-xs">
-                Admin Dashboard v2.0 (Masonry Layout)
+                Basalt Admin v2.1
             </div>
         </div>
     );
