@@ -44,7 +44,7 @@ export default function MasonryGrid({ children, className = "", gap = "gap-6" }:
     return (
         <div className={`flex ${gap} ${className}`}>
             {columnWrapper.map((colChildren, colIndex) => (
-                <div key={colIndex} className="flex flex-col flex-1 gap-6">
+                <div key={colIndex} className={`flex flex-col flex-1 ${gap}`}>
                     {/* 
                        gap-6 matches standard gap, but we might want to pass it dynamically.
                        The props 'gap' usually contains space-y logic or gap class. 
