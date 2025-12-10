@@ -8,7 +8,6 @@ interface MasonryGridProps {
 
 export default function MasonryGrid({ children, className = "", gap = "gap-6 space-y-6" }: MasonryGridProps) {
     return (
-    return (
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${gap} ${className}`}>
             {React.Children.map(children, (child) => (
                 <div className="w-full">
@@ -16,6 +15,5 @@ export default function MasonryGrid({ children, className = "", gap = "gap-6 spa
                 </div>
             ))}
         </div>
-    );
     );
 }
