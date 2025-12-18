@@ -32,31 +32,39 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl }: Uploa
             setChannel("HUMAN");
             setUploadedUrl("");
 
-            // Fetch next available date
-            fetch('/api/wallpapers/next-date')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.date) {
-                        setDate(data.date);
-                    } else {
-                        // Fallback to tomorrow if API fails
-                        const tomorrow = new Date();
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        setDate(tomorrow.toISOString().split('T')[0]);
-                    }
-                })
-                .catch(err => {
-                    console.error("Failed to fetch next date:", err);
-                    // Fallback
-                    const tomorrow = new Date();
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    setDate(tomorrow.toISOString().split('T')[0]);
-                });
-
             // Start Upload Immediately
             handleUpload(file);
         }
     }, [isOpen, file]);
+
+    // Fetch next available date when channel changes
+    useEffect(() => {
+        if (isOpen) {
+            fetchNextDate(channel);
+        }
+    }, [isOpen, channel]);
+
+    const fetchNextDate = (selectedChannel: string) => {
+        fetch(`/api/wallpapers/next-date?channel=${selectedChannel}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.date) {
+                    setDate(data.date);
+                } else {
+                    // Fallback to tomorrow if API fails
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    setDate(tomorrow.toISOString().split('T')[0]);
+                }
+            })
+            .catch(err => {
+                console.error("Failed to fetch next date:", err);
+                // Fallback
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                setDate(tomorrow.toISOString().split('T')[0]);
+            });
+    };
 
     const handleUpload = async (file: File) => {
         setIsUploading(true);

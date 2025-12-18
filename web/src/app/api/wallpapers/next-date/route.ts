@@ -2,15 +2,25 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addDays, format, startOfDay, isSameDay } from "date-fns";
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const channel = searchParams.get("channel");
+
+        // Build where clause
+        const whereClause: any = {
+            releaseDate: {
+                gte: new Date(), // Only look at today and future
+            },
+        };
+
+        if (channel) {
+            whereClause.channel = channel;
+        }
+
         // Get all future release dates
         const wallpapers = await prisma.wallpaper.findMany({
-            where: {
-                releaseDate: {
-                    gte: new Date(), // Only look at today and future
-                },
-            },
+            where: whereClause,
             select: {
                 releaseDate: true,
             },
