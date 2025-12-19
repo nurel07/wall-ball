@@ -11,9 +11,10 @@ import { getOptimizedUrl } from "@/lib/cloudinary";
 interface AdminWallpaperItemProps {
     wallpaper: Wallpaper;
     onReschedule?: (wallpaper: Wallpaper) => void;
+    onEdit?: (wallpaper: Wallpaper) => void;
 }
 
-export default function AdminWallpaperItem({ wallpaper, onReschedule }: AdminWallpaperItemProps) {
+export default function AdminWallpaperItem({ wallpaper, onReschedule, onEdit }: AdminWallpaperItemProps) {
     const router = useRouter();
 
     const handleDelete = async () => {
@@ -50,12 +51,21 @@ export default function AdminWallpaperItem({ wallpaper, onReschedule }: AdminWal
                             Reschedule
                         </button>
                     )}
-                    <Link
-                        href={`/admin/wallpapers/${wallpaper.id}/edit`}
-                        className="bg-white/90 text-black px-3 py-1 rounded text-sm font-medium hover:bg-white"
-                    >
-                        Edit
-                    </Link>
+                    {onEdit ? (
+                        <button
+                            onClick={() => onEdit(wallpaper)}
+                            className="bg-white/90 text-black px-3 py-1 rounded text-sm font-medium hover:bg-white"
+                        >
+                            Edit
+                        </button>
+                    ) : (
+                        <Link
+                            href={`/admin/wallpapers/${wallpaper.id}/edit`}
+                            className="bg-white/90 text-black px-3 py-1 rounded text-sm font-medium hover:bg-white"
+                        >
+                            Edit
+                        </Link>
+                    )}
                     <button
                         onClick={handleDelete}
                         className="bg-red-500/90 text-white px-3 py-1 rounded text-sm font-medium hover:bg-red-600"

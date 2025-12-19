@@ -19,7 +19,7 @@ interface UploadModalProps {
     file: File | null;
     previewUrl: string;
     wallpaper?: Wallpaper;
-    mode?: "UPLOAD" | "RESCHEDULE";
+    mode?: "UPLOAD" | "RESCHEDULE" | "EDIT";
 }
 
 export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpaper, mode = "UPLOAD" }: UploadModalProps) {
@@ -51,6 +51,19 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
             // For reschedule, we want the NEXT available date for this channel
             fetchNextDate(currentChannel);
 
+        } else if (mode === "EDIT" && wallpaper) {
+            // Edit existing
+            setName(wallpaper.name || "");
+            setDescription(wallpaper.description || "");
+            setExternalUrl(wallpaper.externalUrl || "");
+            setChannel(wallpaper.channel || "HUMAN");
+            setUploadedUrl(wallpaper.url);
+
+            // Set existing date
+            // Ensure we handle both Date object or string
+            const d = new Date(wallpaper.releaseDate);
+            setDate(d.toISOString().split('T')[0]);
+
         } else if (file) {
             // New Upload
             setName("");
@@ -69,10 +82,10 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
 
     // Fetch next available date when channel changes
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && mode !== "EDIT") {
             fetchNextDate(channel);
         }
-    }, [isOpen, channel]);
+    }, [isOpen, channel, mode]);
 
     const fetchNextDate = (selectedChannel: string) => {
         fetch(`/api/wallpapers/next-date?channel=${selectedChannel}`)

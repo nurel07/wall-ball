@@ -22,9 +22,10 @@ export default function AdminDashboardTabs({
     );
     const [channelFilter, setChannelFilter] = useState<"ALL" | "HUMAN" | "AI">("ALL");
 
-    // Reschedule state
-    const [rescheduleWallpaper, setRescheduleWallpaper] = useState<Wallpaper | undefined>(undefined);
-    const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+    // Modal state
+    const [activeWallpaper, setActiveWallpaper] = useState<Wallpaper | undefined>(undefined);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalMode, setModalMode] = useState<"UPLOAD" | "RESCHEDULE" | "EDIT">("UPLOAD");
 
     const filterWallpapers = (list: Wallpaper[]) => {
         if (channelFilter === "ALL") return list;
@@ -35,8 +36,21 @@ export default function AdminDashboardTabs({
     const filteredPast = filterWallpapers(pastWallpapers);
 
     const handleReschedule = (wallpaper: Wallpaper) => {
-        setRescheduleWallpaper(wallpaper);
-        setIsRescheduleModalOpen(true);
+        setActiveWallpaper(wallpaper);
+        setModalMode("RESCHEDULE");
+        setIsModalOpen(true);
+    };
+
+    const handleEdit = (wallpaper: Wallpaper) => {
+        setActiveWallpaper(wallpaper);
+        setModalMode("EDIT");
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setActiveWallpaper(undefined);
+        setModalMode("UPLOAD"); // Reset to default
     };
 
     return (
@@ -95,7 +109,11 @@ export default function AdminDashboardTabs({
                         {/* Upload Trigger always visible in Future? Or both? Usually convenient in Future/Active tab */}
                         <UploadCell />
                         {filteredFuture.map((wallpaper) => (
-                            <AdminWallpaperItem key={wallpaper.id} wallpaper={wallpaper} />
+                            <AdminWallpaperItem
+                                key={wallpaper.id}
+                                wallpaper={wallpaper}
+                                onEdit={handleEdit}
+                            />
                         ))}
                         {filteredFuture.length === 0 && (
                             <div className="col-span-full p-8 text-center text-gray-400">
@@ -112,6 +130,7 @@ export default function AdminDashboardTabs({
                                 key={wallpaper.id}
                                 wallpaper={wallpaper}
                                 onReschedule={handleReschedule}
+                                onEdit={handleEdit}
                             />
                         ))}
                         {filteredPast.length === 0 && (
@@ -123,15 +142,12 @@ export default function AdminDashboardTabs({
                 )}
             </div>
 
-            {/* Reschedule Modal */}
+            {/* Generic Modal */}
             <UploadModal
-                isOpen={isRescheduleModalOpen}
-                onClose={() => {
-                    setIsRescheduleModalOpen(false);
-                    setRescheduleWallpaper(undefined);
-                }}
-                wallpaper={rescheduleWallpaper}
-                mode="RESCHEDULE"
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+                wallpaper={activeWallpaper}
+                mode={modalMode}
                 file={null}
                 previewUrl=""
             />
