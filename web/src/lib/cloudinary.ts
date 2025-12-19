@@ -1,12 +1,12 @@
 
 /**
  * Injects Cloudinary optimization parameters into a URL.
- * Defaults to: w_500, q_auto, f_auto for grid display.
+ * Defaults to: w_1200, q_auto, f_auto for grid display (HD for Retina).
  * 
  * @param url The original Cloudinary URL
- * @param width Target width, defaults to 500
+ * @param width Target width, defaults to 1200
  */
-export function getOptimizedUrl(url: string, width: number = 500): string {
+export function getOptimizedUrl(url: string, width: number = 1200): string {
     if (!url.includes("/upload/")) return url;
 
     // Split at /upload/

@@ -43,29 +43,31 @@ export default function AdminDashboardTabs({
         <div>
             {/* Tabs Header */}
             {/* Header: Tabs + Filters */}
-            <div className="flex flex-col md:flex-row justify-between items-end border-b border-gray-200 mb-6 pb-0">
-                <div className="flex">
+            <div className="flex flex-col md:flex-row gap-4 items-center md:items-start border-b border-gray-200 mb-6 pb-4">
+                {/* Future/Past Toggle */}
+                <div className="flex bg-gray-100 rounded-lg p-1 text-xs font-medium">
                     <button
                         onClick={() => setActiveTab("future")}
-                        className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === "future"
-                            ? "border-black text-black"
-                            : "border-transparent text-gray-400 hover:text-gray-600"
+                        className={`px-4 py-1.5 rounded-md transition-all ${activeTab === "future"
+                            ? "bg-white text-black shadow-sm"
+                            : "text-gray-500 hover:text-gray-700"
                             }`}
                     >
-                        Future ({filteredFuture.length})
+                        Future <span className="opacity-60 ml-1">({filteredFuture.length})</span>
                     </button>
                     <button
                         onClick={() => setActiveTab("past")}
-                        className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === "past"
-                            ? "border-black text-black"
-                            : "border-transparent text-gray-400 hover:text-gray-600"
+                        className={`px-4 py-1.5 rounded-md transition-all ${activeTab === "past"
+                            ? "bg-white text-black shadow-sm"
+                            : "text-gray-500 hover:text-gray-700"
                             }`}
                     >
-                        Past ({filteredPast.length})
+                        Past <span className="opacity-60 ml-1">({filteredPast.length})</span>
                     </button>
                 </div>
 
-                <div className="flex bg-gray-100 rounded-lg p-1 mb-2 md:mb-2 text-xs font-medium">
+                {/* Channel Filter Toggle */}
+                <div className="flex bg-gray-100 rounded-lg p-1 text-xs font-medium">
                     {(["ALL", "HUMAN", "AI"] as const).map((filter) => (
                         <button
                             key={filter}
