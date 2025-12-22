@@ -524,6 +524,6 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
                     </div>
                 </form>
             </div>
-
-            );
+        </div>
+    );
 }
