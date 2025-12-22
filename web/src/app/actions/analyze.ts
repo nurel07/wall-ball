@@ -2,12 +2,19 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+import OpenAI from "openai";
+
 const apiKey = process.env.GOOGLE_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey || "");
 
 export async function analyzeImage(imageUrl: string) {
-    if (!apiKey) {
+    const provider = process.env.AI_PROVIDER || "GEMINI";
+
+    if (provider === "GEMINI" && !apiKey) {
         throw new Error("GOOGLE_API_KEY is not set");
+    }
+    if (provider === "OPENAI" && !process.env.OPENAI_API_KEY) {
+        throw new Error("OPENAI_API_KEY is not set");
     }
 
     try {
@@ -24,10 +31,8 @@ export async function analyzeImage(imageUrl: string) {
         const response = await fetch(fetchUrl);
         if (!response.ok) throw new Error("Failed to fetch image");
         const arrayBuffer = await response.arrayBuffer();
-
-        // 2. Prepare for Gemini
-        // model: gemini-3-flash-preview (User requested "Gemini 3 Flash", preview version found)
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+        const base64Data = Buffer.from(arrayBuffer).toString("base64");
+        const mimeType = response.headers.get("content-type") || "image/jpeg";
 
         const prompt = `
       Analyze this image. First, determine if it is "Fine Art" (human-made masterpiece) or "AI Generated" (digital art, midjourney, etc).
@@ -48,18 +53,47 @@ export async function analyzeImage(imageUrl: string) {
       IF type is "AI", keep other fields empty or null.
     `;
 
-        const imagePart = {
-            inlineData: {
-                data: Buffer.from(arrayBuffer).toString("base64"),
-                mimeType: response.headers.get("content-type") || "image/jpeg",
-            },
-        };
+        let resultText = "";
 
-        const result = await model.generateContent([prompt, imagePart]);
-        const text = result.response.text();
+        if (provider === "OPENAI") {
+            const openai = new OpenAI();
+            const completion = await openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                    {
+                        role: "user",
+                        content: [
+                            { type: "text", text: prompt },
+                            {
+                                type: "image_url",
+                                image_url: {
+                                    url: `data:${mimeType};base64,${base64Data}`
+                                }
+                            }
+                        ]
+                    }
+                ],
+                response_format: { type: "json_object" }
+            });
+            resultText = completion.choices[0].message.content || "{}";
+        } else {
+            // GEMINI (Default)
+            // model: gemini-3-flash-preview (User requested "Gemini 3 Flash", preview version found)
+            const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
-        // Clean up markdown code blocks if present
-        const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+            const imagePart = {
+                inlineData: {
+                    data: base64Data,
+                    mimeType: mimeType,
+                },
+            };
+
+            const result = await model.generateContent([prompt, imagePart]);
+            resultText = result.response.text();
+        }
+
+        // Clean up markdown code blocks if present (Gemini sometimes adds them even with JSON mode, OpenAI usually respects response_format but cleanup is safe)
+        const cleanJson = resultText.replace(/```json/g, "").replace(/```/g, "").trim();
 
         const data = JSON.parse(cleanJson);
 
