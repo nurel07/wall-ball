@@ -18,10 +18,5 @@ export async function GET() {
         return NextResponse.json({ error: "No wallpaper found" }, { status: 404 });
     }
 
-    return NextResponse.json({
-        id: wallpaper.id,
-        url: wallpaper.url,
-        description: wallpaper.description,
-        date: wallpaper.releaseDate,
-    });
+    return NextResponse.json(wallpaper);
 }
