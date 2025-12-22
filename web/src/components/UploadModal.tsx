@@ -41,6 +41,23 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
     const [dominantColors, setDominantColors] = useState<string[]>([]);
     const [tags, setTags] = useState<string[]>([]);
 
+    // Duplicate check state
+    const [isDuplicate, setIsDuplicate] = useState(false);
+
+    useEffect(() => {
+        if (!name || channel !== "HUMAN") {
+            setIsDuplicate(false);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            const isDup = await checkDuplicateTitle(name);
+            setIsDuplicate(isDup);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [name, channel]);
+
     const [isUploading, setIsUploading] = useState(false);
     const [uploadedUrl, setUploadedUrl] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -507,6 +524,6 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
                     </div>
             </div>
         </div>
-        </div >
+
     );
 }
