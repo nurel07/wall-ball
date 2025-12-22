@@ -271,7 +271,7 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+                <form onSubmit={handleSubmit} className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6">
 
                     {/* Left Column: Preview + Basic Info */}
                     <div className="space-y-4">
@@ -474,8 +474,8 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
                             </button>
                         </div>
                     </div>
-                </div>
             </div>
         </div>
+        </div >
     );
 }
