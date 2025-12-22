@@ -17,8 +17,8 @@ export async function analyzeImage(imageUrl: string) {
         const arrayBuffer = await response.arrayBuffer();
 
         // 2. Prepare for Gemini
-        // model: gemini-3.0-flash (User requested "Gemini 3 Flash")
-        const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash" });
+        // model: gemini-3-flash-preview (User requested "Gemini 3 Flash", preview version found)
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
         const prompt = `
       Analyze this fine art wallpaper. 
