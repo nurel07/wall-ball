@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { analyzeImage } from "@/app/actions/analyze";
+import { checkDuplicateTitle } from "@/app/actions/validation";
 
 
 
@@ -308,15 +309,45 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
                             )}
                         </div>
 
+                        import {checkDuplicateTitle} from "@/app/actions/validation";
+
+                        // ... inside component ...
+
+                        const [isDuplicate, setIsDuplicate] = useState(false);
+
+    useEffect(() => {
+        if (!name || channel !== "HUMAN") {
+                            setIsDuplicate(false);
+                        return;
+        }
+
+        const timer = setTimeout(async () => {
+            const isDup = await checkDuplicateTitle(name);
+                        setIsDuplicate(isDup);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [name, channel]);
+
+                        // ... in JSX ...
+
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Title</label>
                             <input
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                className="w-full p-2 border rounded-lg bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                className={`w-full p-2 border rounded-lg bg-gray-50 dark:bg-gray-700 outline-none transition-all ${isDuplicate
+                                    ? "border-yellow-500 focus:ring-yellow-500"
+                                    : "border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
+                                    }`}
                                 placeholder="Artwork Title"
                             />
+                            {isDuplicate && (
+                                <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 flex items-center gap-1">
+                                    ⚠️ Warning: A wallpaper with this title already exists.
+                                </p>
+                            )}
                         </div>
 
                         <div>
