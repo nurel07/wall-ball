@@ -45,8 +45,9 @@ export async function analyzeImage(imageUrl: string) {
 
         return JSON.parse(cleanJson);
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("AI Analysis Failed:", error);
-        throw new Error("Failed to analyze image");
+        // Return the actual error message to the client for debugging
+        throw new Error(error.message || "Failed to analyze image");
     }
 }

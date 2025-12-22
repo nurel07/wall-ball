@@ -136,9 +136,9 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
 
             setDescription(desc);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Analysis error:", error);
-            alert("Failed to analyze image with AI.");
+            alert(`Analysis failed: ${error.message}`);
         } finally {
             setIsAnalyzing(false);
         }
