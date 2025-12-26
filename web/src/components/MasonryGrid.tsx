@@ -6,36 +6,47 @@ interface MasonryGridProps {
     children: React.ReactNode;
     className?: string;
     gap?: string;
+    variant?: "standard" | "dense";
 }
 
-export default function MasonryGrid({ children, className = "", gap = "gap-6" }: MasonryGridProps) {
+export default function MasonryGrid({ children, className = "", gap = "gap-6", variant = "standard" }: MasonryGridProps) {
     const [columns, setColumns] = useState(1);
 
-    // Responsive breakpoints similar to Tailwind defaults
-    // md: 768px -> 2 cols
-    // lg: 1024px -> 3 cols
     useEffect(() => {
         const updateColumns = () => {
             const width = window.innerWidth;
-            if (width >= 1536) { // 2xl
-                setColumns(6);
-            } else if (width >= 1280) { // xl
-                setColumns(5);
-            } else if (width >= 1024) { // lg
-                setColumns(4);
-            } else if (width >= 768) { // md
-                setColumns(3);
-            } else if (width >= 640) { // sm
-                setColumns(2);
+
+            if (variant === "dense") {
+                // Dense layout (up to 6 cols) - Used for Collection Detail
+                if (width >= 1536) { // 2xl
+                    setColumns(6);
+                } else if (width >= 1280) { // xl
+                    setColumns(5);
+                } else if (width >= 1024) { // lg
+                    setColumns(4);
+                } else if (width >= 768) { // md
+                    setColumns(3);
+                } else if (width >= 640) { // sm
+                    setColumns(2);
+                } else {
+                    setColumns(1);
+                }
             } else {
-                setColumns(1);
+                // Standard layout (max 3 cols) - Used for Desktop Dashboard (Previous behavior)
+                if (width >= 1024) { // lg
+                    setColumns(3);
+                } else if (width >= 768) { // md
+                    setColumns(2);
+                } else {
+                    setColumns(1);
+                }
             }
         };
 
         updateColumns();
         window.addEventListener("resize", updateColumns);
         return () => window.removeEventListener("resize", updateColumns);
-    }, []);
+    }, [variant]);
 
     const childrenArray = React.Children.toArray(children);
 
