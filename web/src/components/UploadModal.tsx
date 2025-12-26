@@ -141,8 +141,8 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
             setExternalUrl("");
             setChannel("HUMAN");
             setUploadedUrl("");
-            setType("DESKTOP");
-            setCollectionId("");
+            setType(initialCollectionId ? "MOBILE" : "DESKTOP");
+            setCollectionId(initialCollectionId || "");
             setArtist("");
             setCreationDate("");
             setGenre("");
