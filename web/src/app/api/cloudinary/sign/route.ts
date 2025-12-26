@@ -8,17 +8,26 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export async function POST() {
+export async function POST(request: Request) {
     const session = await auth();
     if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Default to 'wallpapers' if not specified
+    let folder = "wallpapers";
+    try {
+        const body = await request.json();
+        if (body.folder) folder = body.folder;
+    } catch (e) {
+        // Ignore JSON parse error (empty body)
     }
 
     const timestamp = Math.round(new Date().getTime() / 1000);
     const signature = cloudinary.utils.api_sign_request(
         {
             timestamp: timestamp,
-            folder: "wallpapers", // Optional: organize uploads in a folder
+            folder: folder,
         },
         process.env.CLOUDINARY_API_SECRET!
     );

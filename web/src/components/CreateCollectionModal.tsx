@@ -38,7 +38,10 @@ export default function CreateCollectionModal({ isOpen, onClose }: CreateCollect
 
         setIsUploading(true);
         try {
-            const signRes = await fetch("/api/cloudinary/sign", { method: "POST" });
+            const signRes = await fetch("/api/cloudinary/sign", {
+                method: "POST",
+                body: JSON.stringify({ folder: "collections" }),
+            });
             if (!signRes.ok) throw new Error("Failed to get upload signature");
             const { signature, timestamp, cloudName, apiKey } = await signRes.json();
 
