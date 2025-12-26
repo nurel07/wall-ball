@@ -75,7 +75,9 @@ export default function AdminWallpaperItem({ wallpaper, onReschedule, onEdit }: 
                 </div>
 
                 <div className="text-white">
-                    <p className="font-bold text-sm mb-1">{format(new Date(wallpaper.releaseDate), "yyyy-MM-dd")}</p>
+                    <p className="font-bold text-sm mb-1">
+                        {wallpaper.releaseDate ? format(new Date(wallpaper.releaseDate), "yyyy-MM-dd") : "No Date"}
+                    </p>
                     {wallpaper.name && <p className="font-semibold text-sm truncate">{wallpaper.name}</p>}
                     {wallpaper.description && <p className="text-xs opacity-90 line-clamp-2">{wallpaper.description}</p>}
                 </div>

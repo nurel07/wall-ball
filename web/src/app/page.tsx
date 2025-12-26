@@ -37,7 +37,7 @@ export default async function Home() {
                 {wallpaper.description}
               </p>
               <p className="text-gray-300 text-sm mt-2">
-                {format(wallpaper.releaseDate, "MMMM d, yyyy")}
+                {wallpaper.releaseDate ? format(wallpaper.releaseDate, "MMMM d, yyyy") : "Unreleased"}
               </p>
             </div>
           </div>
