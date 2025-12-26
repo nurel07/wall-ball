@@ -21,19 +21,24 @@ export default async function AdminDashboard() {
 
     const now = new Date();
 
-    // Fetch Past and Future in parallel
-    const [pastWallpapers, futureWallpapers] = await Promise.all([
+    // Fetch Past and Future in parallel, plus Collections
+    const [pastWallpapers, futureWallpapers, collections] = await Promise.all([
         prisma.wallpaper.findMany({
             where: {
                 releaseDate: { lte: now },
+                type: "DESKTOP",
             },
             orderBy: { releaseDate: "desc" }, // Past: Newest (closest to today) first
         }),
         prisma.wallpaper.findMany({
             where: {
                 releaseDate: { gt: now },
+                type: "DESKTOP",
             },
             orderBy: { releaseDate: "asc" }, // Future: Earliest (closest to today) first
+        }),
+        prisma.mobileCollection.findMany({
+            orderBy: { name: "asc" },
         }),
     ]);
 
@@ -60,6 +65,7 @@ export default async function AdminDashboard() {
             <AdminDashboardTabs
                 pastWallpapers={pastWallpapers}
                 futureWallpapers={futureWallpapers}
+                collections={collections}
             />
 
             <div className="mt-12 text-center text-gray-500 text-xs">

@@ -14,7 +14,14 @@ export interface Wallpaper {
     description: string | null;
     externalUrl: string | null;
     channel: string | null;
-    releaseDate: Date | string;
+    type: "DESKTOP" | "MOBILE";
+    collectionId: string | null;
+    releaseDate: Date | string | null;
+}
+
+export interface MobileCollection {
+    id: string;
+    name: string;
 }
 
 interface UploadModalProps {
@@ -24,14 +31,19 @@ interface UploadModalProps {
     previewUrl: string;
     wallpaper?: Wallpaper;
     mode?: "UPLOAD" | "RESCHEDULE" | "EDIT";
+    collections?: MobileCollection[]; // Optional because maybe not always loaded
 }
 
-export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpaper, mode = "UPLOAD" }: UploadModalProps) {
+export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpaper, mode = "UPLOAD", collections = [] }: UploadModalProps) {
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [externalUrl, setExternalUrl] = useState("");
     const [channel, setChannel] = useState("HUMAN");
     const [date, setDate] = useState("");
+
+    // Type & Collection
+    const [type, setType] = useState<"DESKTOP" | "MOBILE">("DESKTOP");
+    const [collectionId, setCollectionId] = useState("");
 
     // New Metadata Fields
     const [artist, setArtist] = useState("");
@@ -78,6 +90,10 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
             setChannel(currentChannel);
             setUploadedUrl(wallpaper.url);
 
+            const wType = wallpaper.type || "DESKTOP";
+            setType(wType);
+            setCollectionId(wallpaper.collectionId || "");
+
             // New fields might not exist on old wallpapers, default to empty
             setArtist((wallpaper as any).artist || "");
             setCreationDate((wallpaper as any).creationDate || "");
@@ -97,6 +113,10 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
             setChannel(wallpaper.channel || "HUMAN");
             setUploadedUrl(wallpaper.url);
 
+            const wType = wallpaper.type || "DESKTOP";
+            setType(wType);
+            setCollectionId(wallpaper.collectionId || "");
+
             setArtist((wallpaper as any).artist || "");
             setCreationDate((wallpaper as any).creationDate || "");
             setGenre((wallpaper as any).genre || "");
@@ -105,8 +125,12 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
             setTags((wallpaper as any).tags || []);
 
             // Set existing date
-            const d = new Date(wallpaper.releaseDate);
-            setDate(d.toISOString().split('T')[0]);
+            if (wallpaper.releaseDate) {
+                const d = new Date(wallpaper.releaseDate);
+                setDate(d.toISOString().split('T')[0]);
+            } else {
+                setDate("");
+            }
 
         } else if (file) {
             // New Upload
@@ -115,6 +139,8 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
             setExternalUrl("");
             setChannel("HUMAN");
             setUploadedUrl("");
+            setType("DESKTOP");
+            setCollectionId("");
             setArtist("");
             setCreationDate("");
             setGenre("");
@@ -251,7 +277,9 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
             genre,
             movement,
             dominantColors,
-            tags
+            tags,
+            type,
+            collectionId: type === "MOBILE" ? collectionId : null
         };
 
         try {

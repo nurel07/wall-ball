@@ -1,6 +1,8 @@
 import SwiftUI
 import AppKit
 import Combine
+import Network
+import ServiceManagement
 
 // MARK: - 1. Constants & Configuration
 
@@ -26,6 +28,7 @@ enum Constants {
     static let dailyStateKey = "DailyState"
     
     // Channels
+    // Channels
     static let channelHuman = "HUMAN"
     static let channelAI = "AI"
     static let defaultChannels = [channelHuman, channelAI]
@@ -41,6 +44,8 @@ struct Wallpaper: Codable, Sendable {
     let externalUrl: String?
     let channel: String?
     let releaseDate: String?
+    let artist: String?
+    let creationDate: String?
 }
 
 struct ScreenWallpaperInfo: Identifiable {
@@ -59,6 +64,24 @@ struct DailyState: Codable, Sendable {
 }
 
 // MARK: - 3. Services
+
+/// Monitors network connectivity
+class NetworkMonitor: ObservableObject {
+    static let shared = NetworkMonitor()
+    private let monitor = NWPathMonitor()
+    private let queue = DispatchQueue(label: "NetworkMonitor")
+    
+    @Published var isConnected: Bool = true
+    
+    init() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            DispatchQueue.main.async {
+                self?.isConnected = path.status == .satisfied
+            }
+        }
+        monitor.start(queue: queue)
+    }
+}
 
 /// Handles all network API interactions
 struct NetworkService {
@@ -148,12 +171,22 @@ struct ImageService {
         
         // 2. Text Content
         var textParts: [String] = []
-        if let name = wallpaper.name, !name.isEmpty { textParts.append(name) }
-        if let desc = wallpaper.description, !desc.isEmpty { textParts.append(desc) }
+        
+        // Smart Overlay Logic based on Channel
+        let isAI = (wallpaper.channel == Constants.channelAI)
+        
+        if isAI {
+             // AI: No text, just logo (handled by showText=false)
+        } else {
+            // Human: Title, Artist, Year
+            if let name = wallpaper.name, !name.isEmpty { textParts.append(name) }
+            if let artist = wallpaper.artist, !artist.isEmpty { textParts.append(artist) }
+            if let date = wallpaper.creationDate, !date.isEmpty { textParts.append(date) }
+        }
+        
         let overlayText = textParts.joined(separator: ", ")
         
         // 3. Conditional Text Display (Hide for AI)
-        let isAI = (wallpaper.channel == Constants.channelAI)
         let showText = !isAI
         
         return injectCloudinaryParams(url: wallpaper.url, width: width, height: height, text: overlayText, showText: showText, fitToVertical: fitToVertical)
@@ -202,11 +235,18 @@ struct ImageService {
     
     /// Downloads image to Disk and returns local URL
     func downloadImage(url: URL, wallpaperId: String) async throws -> URL {
-        let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let folderURL = appSupportURL.appendingPathComponent("Basalt")
+        
+        // Ensure folder exists
+        if !fileManager.fileExists(atPath: folderURL.path) {
+            try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
+        }
+        
         // FIX: Use hash of the absolute URL to ensure unique filenames for different Cloudinary transformations (overlays, sizes)
         let urlHash = abs(url.absoluteString.hashValue)
         let filename = "wallpaper_\(wallpaperId)_\(urlHash).jpg"
-        let destinationURL = documentsURL.appendingPathComponent(filename)
+        let destinationURL = folderURL.appendingPathComponent(filename)
         
         // Check existing
         if fileManager.fileExists(atPath: destinationURL.path) {
@@ -265,6 +305,7 @@ class WallpaperManager: ObservableObject {
     private let networkService = NetworkService()
     private let imageService = ImageService()
     private let defaults = UserDefaults.standard
+    private let networkMonitor = NetworkMonitor.shared
     
     // State
     @Published var currentStatus: String = "Ready"
@@ -294,6 +335,9 @@ class WallpaperManager: ObservableObject {
     // Internal Cache
     var cachedWallpapers: [Wallpaper] = []
     private var screenChangeTimer: Timer?
+    
+    // Concurrency Control
+    private var updateTask: Task<Void, Never>?
     
     /// Re-processes the current wallpapers with new settings
     func refreshDisplay() {
@@ -332,7 +376,21 @@ class WallpaperManager: ObservableObject {
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleScreenChange), name: NSApplication.didChangeScreenParametersNotification, object: nil
         )
+        // Network Change
+        networkMonitor.$isConnected
+            .dropFirst() // Ignore initial
+            .sink { [weak self] connected in
+                if connected {
+                    print("Network is back. Checking for updates...")
+                    self?.checkForUpdates()
+                } else {
+                    self?.currentStatus = "Offline"
+                }
+            }
+            .store(in: &cancellables)
     }
+    
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Actions
     
@@ -353,117 +411,124 @@ class WallpaperManager: ObservableObject {
     }
     
     func checkForUpdates() {
-        self.currentStatus = "Checking..."
+        // Cancel previous update to prevent race conditions
+        updateTask?.cancel()
         
-        Task {
+        updateTask = Task { @MainActor in
+            // Debounce (coalesce rapid events)
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+            if Task.isCancelled { return }
+            
+            // 1. Setup Context
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            let todayString = formatter.string(from: Date())
+            self.currentStatus = "Checking..."
+            
             do {
-                // 1. Calculate Today's Date (YYYY-MM-DD)
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd"
-                let todayString = formatter.string(from: Date())
+                // 2. CHECKPERSISTENCE: Do we have a valid state for today?
+                // Validity = Correct Date + Correct Channel + Content is "Today's" (not a fallback)
+                // Note: We prioritize explicit "Surprise" overrides if they exist and match today
                 
-                // 2. Surprise Check (Override Logic)
-                let overrideDate = defaults.string(forKey: Constants.overrideContextIdKey)
-                if let oDate = overrideDate, oDate == todayString {
-                    // Surprise is Active for Today.
-                    if let data = defaults.data(forKey: Constants.overrideWallpaperKey),
-                       let surpriseWallpaper = try? JSONDecoder().decode(Wallpaper.self, from: data) {
-                        
-                        // Current logic: Surprise applies to MAIN screen.
-                        // For secondaries in Surprise mode? Simplest is same on all or just main.
-                        // Let's treat Surprise as a temporary "DailyState" where Main = Surprise.
-                        // If separate screens, we can either generate randoms or keep history.
-                        // Requirement: "active until next day".
-                        // Let's construct a temporary DailyState for display.
-                        
-                        let state = DailyState(
-                            date: todayString,
-                            mainWallpaper: surpriseWallpaper,
-                            secondaryWallpapers: [:] // Surprise doesn't currently mandate specific secondary behavior, falling back to Main is safest for "Surprise"
-                        )
-                        processDailyState(state)
-                        return
-                    }
-                } else if overrideDate != nil {
-                    // Old Surprise -> Expire it.
-                    defaults.removeObject(forKey: Constants.overrideContextIdKey)
-                    defaults.removeObject(forKey: Constants.overrideWallpaperIdKey)
-                    defaults.removeObject(forKey: Constants.overrideWallpaperKey)
-                } 
+                // A. Check Surprise Override
+                if let overrideDate = defaults.string(forKey: Constants.overrideContextIdKey), 
+                   overrideDate == todayString,
+                   let data = defaults.data(forKey: Constants.overrideWallpaperKey),
+                   let surpriseParams = try? JSONDecoder().decode(Wallpaper.self, from: data) {
+                    
+                    // Surprise is valid for today. Use it.
+                    // Note: Surprise ignores Channel filters because it was explicit user action.
+                    let state = DailyState(date: todayString, mainWallpaper: surpriseParams, secondaryWallpapers: [:])
+                    await processDailyState(state)
+                    return
+                }
                 
-                // 3. Daily Consistency Check (Persistence)
+                // B. Check Daily State
                 if let data = defaults.data(forKey: Constants.dailyStateKey),
                    let savedState = try? JSONDecoder().decode(DailyState.self, from: data),
                    savedState.date == todayString {
                     
-                    // Valid Daily State found.
-                    print("✅ Using PERSISTED Daily State for \(todayString). Main: \(savedState.mainWallpaper.name ?? "Unknown")")
+                    let wallpaper = savedState.mainWallpaper
                     
-                    // Check if we need to fill in missing secondaries (if screen count changed)
-                    var mutableState = savedState
-                    let screenCount = NSScreen.screens.count
-                    if !useSameWallpaper && screenCount > 1 {
-                         // ... logic ...
+                    // Validation 1: Channel
+                    // If the saved wallpaper's channel is NOT in the currently selected set, we must discard it.
+                    let wallpaperChannel = wallpaper.channel ?? Constants.channelHuman // Default to Human if missing
+                    let channelMatch = selectedChannels.contains(wallpaperChannel)
+                    
+                    // Validation 2: Freshness
+                    // Ensure we aren't using a "fallback" from yesterday if today's real post is out.
+                    let releaseDate = wallpaper.releaseDate?.prefix(10) ?? "unknown"
+                    let isFresh = (releaseDate == todayString)
+                    
+                    if channelMatch && isFresh {
+                        print("✅ Using PERSISTED Valid State. Name: \(wallpaper.name ?? ""), Channel: \(wallpaperChannel)")
+                        await processDailyState(savedState)
+                        return
+                    } else {
+                        print("♻️ Persisted state invalid. Match: \(channelMatch), Fresh: \(isFresh). Refetching...")
                     }
-                    
-                    processDailyState(savedState)
+                }
+                
+                // 3. FETCH: Get new data from server
+                if !networkMonitor.isConnected {
+                    self.currentStatus = "Offline"
                     return
                 }
                 
-                print("⚠️ No valid Daily State found for \(todayString). Generating new one...")
-                // We need the manifest
+                // Fetch Manifest (Server filters by channel for us, but we can double check)
                 let wallpapers = try await networkService.fetchManifest(channels: selectedChannels)
                 
                 if wallpapers.isEmpty {
                     self.currentStatus = "No wallpapers found."
                     return
                 }
-                
                 self.cachedWallpapers = wallpapers
                 
-                // A. Main Screen Choice
-                // Filter for Release Date == Today (Robust prefix check)
+                // 4. SELECT: Pick the winning wallpaper
+                // Logic: "Today's" Release > "Most Recent" Release > Random Fallback
+                
                 let candidates = wallpapers.filter { 
                     ($0.releaseDate?.prefix(10) ?? "unknown") == todayString 
                 }
                 
-                print("Daily Candidates for \(todayString): \(candidates.count). Total Fetched: \(wallpapers.count)")
-                
                 let mainChoice: Wallpaper
-                if let winner = candidates.randomElement() {
-                    mainChoice = winner
+                if let strictlyToday = candidates.randomElement() {
+                    mainChoice = strictlyToday
+                    print("🎉 Found Today's Wallpaper: \(mainChoice.name ?? "Unknown")")
                 } else {
-                    // Fallback: Random from past (Manifest is already "Published" and likely sorted/filtered)
-                    // Just pick a random one from the whole list.
-                    mainChoice = wallpapers.randomElement() ?? wallpapers[0]
+                    // Fallback to latest available
+                    let sorted = wallpapers.sorted { ($0.releaseDate ?? "") > ($1.releaseDate ?? "") }
+                    if let latest = sorted.first {
+                        mainChoice = latest
+                        print("⚠️ using Latest Fallback: \(mainChoice.name ?? "Unknown")")
+                    } else {
+                        mainChoice = wallpapers[0]
+                    }
                 }
                 
-                // B. Secondary Screens Choice
+                // 5. SECONDARIES
                 var secondaries: [Int: Wallpaper] = [:]
-                let screens = NSScreen.screens
-                if !useSameWallpaper && screens.count > 1 {
-                    // For each secondary screen (index 1+)
-                    for i in 1..<screens.count {
-                        // "Random from past"
-                        // Explicitly exclude "Today" candidates if you want strict "Past"? 
-                        // User said "pick random wallpaper from the past".
-                        // Let's filter out todayString from the random pool if possible.
-                        let pastWallpapers = wallpapers.filter { $0.releaseDate != todayString }
-                        let pool = pastWallpapers.isEmpty ? wallpapers : pastWallpapers
+                if !useSameWallpaper && NSScreen.screens.count > 1 {
+                    for i in 1..<NSScreen.screens.count {
+                        // Avoid using the exact same Main wallpaper if possible, or just pick randoms
+                        let pool = wallpapers.filter { $0.id != mainChoice.id }
                         secondaries[i] = pool.randomElement() ?? mainChoice
                     }
                 }
                 
-                // C. Persist
+                // 6. PERSIST & APPLY
                 let newState = DailyState(date: todayString, mainWallpaper: mainChoice, secondaryWallpapers: secondaries)
-                
                 if let data = try? JSONEncoder().encode(newState) {
                     defaults.set(data, forKey: Constants.dailyStateKey)
                 }
                 
-                processDailyState(newState)
+                // Clear any old, stale overrides
+                defaults.removeObject(forKey: Constants.overrideContextIdKey)
+                
+                await processDailyState(newState)
                 
             } catch {
+                if Task.isCancelled { return }
                 print("Update Error: \(error)")
                 self.currentStatus = "Error: \(error.localizedDescription)"
             }
@@ -471,6 +536,9 @@ class WallpaperManager: ObservableObject {
     }
     
     func surpriseMe() {
+         // Network check removed to allow cached surprise if applicable, though fetchRandom needs network.
+         // fetchRandom will throw if offline, which is fine.
+        
         self.currentStatus = "Fetching surprise..."
         
         Task {
@@ -507,7 +575,7 @@ class WallpaperManager: ObservableObject {
     // MARK: - Logic
     
     /// Main Logic Engine: Map Data -> Screens
-    private func processDailyState(_ state: DailyState) {
+    private func processDailyState(_ state: DailyState) async {
         let screens = NSScreen.screens
         guard !screens.isEmpty, let mainScreen = NSScreen.main else {
             self.currentStatus = "No displays."
@@ -525,60 +593,81 @@ class WallpaperManager: ObservableObject {
         var newInfos: [ScreenWallpaperInfo] = []
         
         // Calculate Assignments (Wallpaper -> Screen)
-        for (index, screen) in sortedScreens.enumerated() {
-            // Determine which wallpaper to use for this screen from DailyState
-            let wallpaper: Wallpaper
-            
-            if useSameWallpaper {
-                wallpaper = state.mainWallpaper
-            } else {
-                if index == 0 {
+        // We use a TaskGroup to download concurrently but safely within this actor/Task
+        // We track failures within the group loop
+        var failures = 0
+        
+        await withTaskGroup(of: (Int, ScreenWallpaperInfo?, Error?).self) { group in
+            for (index, screen) in sortedScreens.enumerated() {
+                // Determine which wallpaper to use for this screen from DailyState
+                let wallpaper: Wallpaper
+                
+                if useSameWallpaper {
                     wallpaper = state.mainWallpaper
                 } else {
-                    // Secondary Logic
-                    if let sec = state.secondaryWallpapers[index] {
-                        wallpaper = sec
-                    } else {
-                        // Edge Case: A new screen appeared mid-day that wasn't in DailyState.
-                        // Fallback to Main rather than crashing or showing nothing
+                    if index == 0 {
                         wallpaper = state.mainWallpaper
+                    } else {
+                        wallpaper = state.secondaryWallpapers[index] ?? state.mainWallpaper
+                    }
+                }
+                
+                // Generate Info
+                let urlOrNil = imageService.generateUrl(for: wallpaper, screen: screen, fitToVertical: self.fitVerticalDisplays)
+                
+                let displayName = "Disp \(index + 1)"
+                var contentName = wallpaper.name ?? wallpaper.description ?? "Untitled"
+                if let n = wallpaper.name, let d = wallpaper.description, !d.isEmpty { contentName = "\(n) - \(d)" }
+                
+                let info = ScreenWallpaperInfo(
+                    displayName: displayName,
+                    wallpaperName: contentName,
+                    url: urlOrNil,
+                    originalUrl: wallpaper.url,
+                    externalUrl: wallpaper.externalUrl
+                )
+                
+                // Trigger Download & Set
+                if let downloadUrl = urlOrNil {
+                    group.addTask {
+                        do {
+                            let localPath = try await self.imageService.downloadImage(url: downloadUrl, wallpaperId: wallpaper.id)
+                            await MainActor.run {
+                                try? self.imageService.applyToScreen(localUrl: localPath, screen: screen)
+                            }
+                            return (index, info, nil)
+                        } catch {
+                            return (index, info, error)
+                        }
+                    }
+                } else {
+                    // No URL generated, immediately return success-ish info (just metadata)
+                    group.addTask {
+                        return (index, info, nil)
                     }
                 }
             }
             
-            // Generate Info
-            let urlOrNil = imageService.generateUrl(for: wallpaper, screen: screen, fitToVertical: self.fitVerticalDisplays)
-            
-            let displayName = "Disp \(index + 1)"
-            var contentName = wallpaper.name ?? wallpaper.description ?? "Untitled"
-            if let n = wallpaper.name, let d = wallpaper.description, !d.isEmpty { contentName = "\(n) - \(d)" }
-            
-            newInfos.append(ScreenWallpaperInfo(
-                displayName: displayName,
-                wallpaperName: contentName,
-                url: urlOrNil,
-                originalUrl: wallpaper.url,
-                externalUrl: wallpaper.externalUrl
-            ))
-            
-            // Trigger Download & Set
-            if let downloadUrl = urlOrNil {
-                Task {
-                    do {
-                        let localPath = try await imageService.downloadImage(url: downloadUrl, wallpaperId: wallpaper.id)
-                        try imageService.applyToScreen(localUrl: localPath, screen: screen)
-                        if screen == mainScreen { self.currentStatus = "Updated!" }
-                    } catch {
-                        print("Failed screen \(index): \(error)")
-                    }
+            // Collect results
+            for await (index, info, error) in group {
+                if let err = error {
+                    print("Failed screen \(index): \(err)")
+                    failures += 1
+                } else if let validInfo = info {
+                    newInfos.append(validInfo)
                 }
             }
         }
         
-        self.screenWallpapers = newInfos
+        if failures == 0 {
+            self.currentStatus = "Updated!"
+        } else {
+            self.currentStatus = "Updated with warnings."
+        }
+        
+        // Update UI State
+        self.screenWallpapers = newInfos.sorted { $0.displayName < $1.displayName }
     }
-    
-
     
     // MARK: - Event Handlers
     
@@ -616,10 +705,6 @@ class WallpaperManager: ObservableObject {
     }
 }
 
-import ServiceManagement
-
-// ... (Existing Imports)
-
 // MARK: - 5. App UI & Settings
 
 struct SettingsView: View {
@@ -636,10 +721,7 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             // Title
-            Text("Settings")
-                .font(.system(size: 20, weight: .semibold))
-                .padding(.horizontal)
-                .padding(.top, 10)
+
             
             // Group 1: Channels
             SettingsGroup(title: "Select channels") {
@@ -695,13 +777,13 @@ struct SettingsView: View {
                                 try SMAppService.mainApp.unregister()
                             }
                         } catch {
-                            print("Failed to update Launch at Login: \(error)")
+                            print("Failed to toggle Launch at Login: \(error)")
                         }
                     }
             }
             
             // Footer
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 // Version (Clickable to check for updates)
                 Button(action: {
                     updater.checkForUpdates()
@@ -730,9 +812,11 @@ struct SettingsView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
                 } else {
-                    Text("All OK")
+                    Text(manager.currentStatus)
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
                 
                 Text("·")
@@ -748,14 +832,28 @@ struct SettingsView: View {
                 .foregroundColor(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 10)
-            .padding(.bottom, 20)
+           
         }
         .padding()
         .fixedSize(horizontal: true, vertical: true)
         .onAppear {
             // Force app to front when settings window appears
             NSApp.activate(ignoringOtherApps: true)
+            
+            // Fix: Rename window and bring to front (Floating)
+            // We search for the window that contains this view. 
+            // Since this is SwiftUI, we look for the key window or the one matching standard naming (usually "Basalt Settings" initially)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                for window in NSApp.windows {
+                    // Check if it's likely our settings window (standard window, not status item)
+                    // The standard Settings window usually has title "Basalt Settings" or "Settings"
+                    // Or we can just set it for the key window if we are active.
+                    if window.title.contains("Settings") {
+                        window.level = .normal // Standard behavior, not always on top
+                        window.makeKeyAndOrderFront(nil) // Bring to front
+                    }
+                }
+            }
         }
     }
 }
@@ -825,7 +923,7 @@ struct SettingsToggleRow: View {
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
         SettingsView()
-            .frame(width: 320)
+            .frame(width: 300)
     }
 }
 
@@ -843,10 +941,17 @@ struct BasaltApp: App {
             Button("🎲 Surprise me") { manager.surpriseMe() }
             Divider()
             
-            SettingsLink {
-                Text("Settings...")
+            if #available(macOS 14.0, *) {
+                SettingsButtonWrapper()
+            } else {
+                Button("Settings...") {
+                    // Manual fallback for older macOS versions
+                    // Manual fallback for older macOS versions (actually safe for target)
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+                .keyboardShortcut(",", modifiers: .command)
             }
-            .keyboardShortcut(",", modifiers: .command)
             Divider()
             Button("Quit") { NSApplication.shared.terminate(nil) }
         }
@@ -865,6 +970,19 @@ struct BasaltApp: App {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(str, forType: .string)
+    }
+}
+
+@available(macOS 14.0, *)
+struct SettingsButtonWrapper: View {
+    @Environment(\.openSettings) private var openSettings
+    
+    var body: some View {
+        Button("Settings...") {
+            NSApp.activate(ignoringOtherApps: true)
+            openSettings()
+        }
+        .keyboardShortcut(",", modifiers: .command)
     }
 }
 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const channelParam = searchParams.get("channel");
+    const typeParam = searchParams.get("type");
 
     console.log("API v4 CALL RECEIVED", request.url);
 
@@ -25,10 +26,20 @@ export async function GET(request: Request) {
             };
         }
 
+        // Default to DESKTOP if not specified, unless explicit "ALL" is requested (optional for admin)
+        // But for safety/compat, let's stick to: if type is provided use it, else default to DESKTOP
+        const type = (typeParam === "MOBILE") ? "MOBILE" : "DESKTOP";
+
+        where = {
+            ...where,
+            type
+        };
+
         // Debug logging
         console.log("API v5 Debug:");
         console.log("- Request URL:", request.url);
         console.log("- Published Param:", publishedParam);
+        console.log("- Type Param:", type);
         console.log("- Where Clause:", JSON.stringify(where, null, 2));
 
         const wallpapers = await prisma.wallpaper.findMany({
@@ -93,7 +104,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { url, name, description, externalUrl, channel, releaseDate, artist, creationDate, genre, movement, dominantColors, tags } = body;
+        const { url, name, description, externalUrl, channel, releaseDate, artist, creationDate, genre, movement, dominantColors, tags, type, collectionId } = body;
 
         const wallpaper = await prisma.wallpaper.create({
             data: {
@@ -102,13 +113,16 @@ export async function POST(request: Request) {
                 description,
                 externalUrl,
                 channel: channel || "HUMAN",
-                releaseDate: new Date(releaseDate),
+                // Handled optional releaseDate in schema, but good to check if passed
+                releaseDate: releaseDate ? new Date(releaseDate) : null,
                 artist,
                 creationDate,
                 genre,
                 movement,
                 dominantColors,
                 tags,
+                type: type || "DESKTOP",
+                collectionId,
             },
         });
 
