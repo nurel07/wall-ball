@@ -492,16 +492,18 @@ export default function UploadModal({ isOpen, onClose, file, previewUrl, wallpap
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Release Date</label>
-                            <input
-                                type="date"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                className="w-full p-2 border rounded-lg bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                required
-                            />
-                        </div>
+                        {type === "DESKTOP" && (
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Release Date</label>
+                                <input
+                                    type="date"
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                    className="w-full p-2 border rounded-lg bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                    required
+                                />
+                            </div>
+                        )}
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">External URL</label>
                             <input

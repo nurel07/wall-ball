@@ -56,9 +56,7 @@ export default function CollectionDetailClient({ collection, wallpapers }: Colle
 
             {/* Content */}
             <MasonryGrid gap="gap-0 space-y-0">
-                <div onClick={() => setIsModalOpen(true)}>
-                    <UploadCell />
-                </div>
+                <UploadCell initialCollectionId={collection.id} />
 
                 {wallpapers.map((wallpaper) => (
                     <AdminWallpaperItem
