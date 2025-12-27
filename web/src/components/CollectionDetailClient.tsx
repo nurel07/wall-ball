@@ -39,7 +39,7 @@ function SortableWallpaperItem({ wallpaper, index, onEdit }: { wallpaper: Wallpa
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="relative group">
             <div className="absolute top-2 left-2 z-20 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
-                #{index + 1}
+                #{index}
             </div>
             <AdminWallpaperItem
                 wallpaper={wallpaper}
